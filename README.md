@@ -1,1 +1,2 @@
-# Electivo-III-y-IV-Ciencia-de-Datos-para-la-Gesti-n--Avanzado-
+# Electivo-III-y-IV-Ciencia-de-Datos-para-la-Gestion-Avanzado-
+MBA Universidad Técnica Federico Santa María
