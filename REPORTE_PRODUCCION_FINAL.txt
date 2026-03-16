@@ -1,0 +1,167 @@
+
+==============================================================================
+   REPORTE FINAL -- SISTEMA DE PRODUCCION HIGGSML
+   (Escrito para ser entendido por cualquier persona)
+==============================================================================
+Fecha: 2026-02-28 15:33:57
+Tiempo Total: 94.3 segundos
+Modo: CARGADO desde disco (sin re-entrenar)
+Datos: 10000000 eventos (Muestra: 10000000)
+
+==============================================================================
+1. QUE HACE ESTE SISTEMA?
+==============================================================================
+Este sistema intenta distinguir entre dos tipos de eventos en el acelerador
+de particulas del CERN:
+
+  - SENAL: Eventos donde se produjo un Boson de Higgs (la particula que
+    da masa a todo lo que existe). Encontrarla fue el mayor descubrimiento
+    de la fisica moderna (2012, Premio Nobel).
+
+  - RUIDO: Eventos de fondo, procesos fisicos normales que se parecen
+    al Higgs pero no lo son (como ruido en una radio).
+
+El modelo usa inteligencia artificial para aprender a distinguir entre
+ambos, analizando las propiedades fisicas de cada evento.
+
+==============================================================================
+2. COMO FUNCIONA EL MODELO? (Arquitectura)
+==============================================================================
+Usamos un "Consejo de Sabios" (Stacking Classifier):
+
+  Experto 1: XGBoost (500 arboles, prof=8, lr=0.03)
+    - Funciona como un cuestionario de preguntas SI/NO sobre las variables.
+    - Ejemplo: "La masa estimada es mayor a 120 GeV? SI -> probablemente Higgs"
+    - Es rapido y preciso con datos numericos.
+
+  Experto 2: Red Neuronal MLP (capas: 256->128->64, lr=0.003, alpha=0.01)
+    - Funciona como un cerebro artificial que aprende patrones complejos.
+    - Captura relaciones que los arboles no pueden ver.
+
+  Juez Final: Regresion Logistica (C=3.0, max_iter=1000)
+    - Aprende CUANDO confiar mas en el Arbol y cuando en la Red.
+    - Es simple a proposito: su trabajo es combinar, no inventar.
+
+  Modo de seleccion de hiperparametros: AUTO
+    - MANUAL: parametros fijos definidos por el usuario.
+    - AUTO: el sistema hace busqueda automatica antes de entrenar.
+
+  Calibracion: Despues de decidir, ajustamos las probabilidades para que
+  sean honestas (si dice "80% Higgs", que realmente sea 80%).
+
+==============================================================================
+3. QUE TAN BUENO ES? (Metricas)
+==============================================================================
+  AUC (Area bajo la curva ROC):     0.8570
+    -> 1.0 = perfecto, 0.5 = adivinando al azar. 0.8570 es bueno.
+
+  Accuracy (Exactitud):              0.8157
+    -> De cada 100 eventos, acierta 82.
+
+  Brier Score (antes de calibrar):   0.1243
+  Brier Score (despues de calibrar): 0.1351
+    -> Mejora del -8.7% en la honestidad de las probabilidades.
+
+==============================================================================
+4. ESTIMACION DE LA INTENSIDAD DE SENAL (mu)
+==============================================================================
+  mu es un numero que indica cuanta senal de Higgs detectamos:
+    mu = 1.0 -> Exactamente lo que predice la teoria (Modelo Estandar)
+    mu > 1.0 -> Vemos MAS senal de la esperada (nueva fisica!)
+    mu < 1.0 -> Vemos MENOS senal de la esperada
+
+  Nuestro resultado:
+    mu = 0.5828 +/- 0.0005
+    Intervalo 68%: [0.5824, 0.5834]
+    (Calculado con 100 iteraciones de Bootstrap)
+
+  Comparativa con la competencia:
+    Metrica             Referencia    Nuestro Modelo
+    Cobertura           68%           68% (Bootstrap)
+    AUC                 ~0.93-0.95    0.8570
+    Calibracion         ~0.06-0.08    0.1351
+
+==============================================================================
+5. DECISIONES DEL MODELO (Reglas del Arbol en Lenguaje Humano)
+==============================================================================
+  El arbol XGBoost toma decisiones como un doctor que hace preguntas:
+
+  Regla #1: Si la [PRI_had_pt] es menor a 0.345 -> Explorar rama IZQUIERDA del arbol, si no -> rama DERECHA
+  Regla #2: Ademas, si [Momento del Jet Principal] < 0.205 -> Refinar clasificacion (corte secundario)
+  Regla #3: Refinamiento profundo: [Momento del Lepton] < 0.414 -> Ajuste fino de la prediccion
+
+  Interpretacion: Cada regla es un "corte" en una variable fisica.
+  El modelo aprende que combinacion de cortes separa mejor la senal
+  del Higgs del ruido de fondo.
+
+==============================================================================
+6. PREDICCIONES DE EVENTOS INDIVIDUALES
+==============================================================================
+  Aqui mostramos como el modelo clasifica 5 eventos nunca vistos:
+
+  Evento #1:
+    Probabilidad de Higgs: 6.2%
+    Intervalo de confianza: (6.2% - 6.3%)
+    Clasificacion del modelo: RUIDO (fondo, no es Higgs)
+    Resultado real: RUIDO REAL (Fondo)
+
+  Evento #2:
+    Probabilidad de Higgs: 9.6%
+    Intervalo de confianza: (8.8% - 10.6%)
+    Clasificacion del modelo: RUIDO (fondo, no es Higgs)
+    Resultado real: RUIDO REAL (Fondo)
+
+  Evento #3:
+    Probabilidad de Higgs: 69.6%
+    Intervalo de confianza: (68.3% - 71.0%)
+    Clasificacion del modelo: AMBIGUO (requiere mas datos)
+    Resultado real: SENAL REAL (Higgs)
+
+  Evento #4:
+    Probabilidad de Higgs: 51.7%
+    Intervalo de confianza: (50.2% - 52.9%)
+    Clasificacion del modelo: AMBIGUO (requiere mas datos)
+    Resultado real: SENAL REAL (Higgs)
+
+  Evento #5:
+    Probabilidad de Higgs: 17.4%
+    Intervalo de confianza: (17.1% - 18.4%)
+    Clasificacion del modelo: RUIDO (fondo, no es Higgs)
+    Resultado real: RUIDO REAL (Fondo)
+
+
+==============================================================================
+7. DICCIONARIO DE VARIABLES (Glosario para No-Fisicos)
+==============================================================================
+  Las variables que usa el modelo y su significado en espanol:
+
+  PRI_lep_pt                     -> Momento del Lepton (velocidad del electron o muon detectado)
+  PRI_lep_eta                    -> Angulo Eta del Lepton (direccion vertical del lepton)
+  PRI_lep_phi                    -> Angulo Phi del Lepton (direccion horizontal del lepton)
+  PRI_had_pt                     -> PRI_had_pt
+  PRI_had_eta                    -> PRI_had_eta
+  PRI_had_phi                    -> PRI_had_phi
+  PRI_jet_leading_pt             -> Momento del Jet Principal (el chorro mas energetico)
+  PRI_jet_leading_eta            -> Angulo del Jet Principal (direccion del chorro mas fuerte)
+  PRI_jet_leading_phi            -> Phi del Jet Principal (orientacion horizontal del jet 1)
+  PRI_jet_subleading_pt          -> Momento del Jet Secundario (el segundo chorro mas energetico)
+
+
+==============================================================================
+8. ARCHIVOS GENERADOS
+==============================================================================
+  * modelo_entrenado_higgs.pkl      -- Modelo guardado (no re-entrenar)
+  * convergencia_entrenamiento.png  -- Prueba de que el modelo aprendio
+  * calibracion_comparativa.png     -- Antes vs despues de calibrar
+  * roc_stacking.png                -- Curva ROC (que tan bien separa)
+  * distribucion_stacking.png       -- Separacion senal vs fondo
+  * bootstrap_mu.png                -- Distribucion de mu por Bootstrap
+  * importancia_variables.png       -- Que variables importan mas
+  * arquitectura_red_neuronal_mlp.png -- Entrada, capas, neuronas y salida de la red
+  * arbol_decision_completo_tree_0.png -- Arbol de decision completo (todas las ramas)
+  * arbol_decision_completo_tree_0.txt -- Dump textual completo del mismo arbol
+  * REPORTE_PRODUCCION_FINAL.txt    -- Este reporte
+
+==============================================================================
+                    FIN DEL REPORTE
+==============================================================================

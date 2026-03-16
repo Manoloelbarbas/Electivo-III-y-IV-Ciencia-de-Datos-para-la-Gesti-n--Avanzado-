@@ -1,0 +1,103 @@
+﻿EXPLICACION: DE DONDE SACA LOS DATOS EL PIPELINE Y COMO LOS DIVIDE
+
+Archivo principal revisado:
+- 02_Codigos/pipeline_produccion_final.py
+
+1) DE DONDE SACA LOS DATOS
+
+El pipeline usa esta ruta base:
+- DATA_DIR = c:/Manolo/MBA/ciencia_de_datos/tarea/01_Datos/Competencia_CERN/HiggsML_Uncertainty_Challenge(2025)/public_data_CERN/input_data/train
+
+Luego llama:
+- loader = HiggsDataLoader(DATA_DIR, sample_size=SAMPLE_SIZE)
+- X_train, X_val, y_train, y_val, w_train, w_val = loader.load_data()
+
+La clase HiggsDataLoader esta en:
+- 02_Codigos/cargador_datos.py
+
+2) QUE ARCHIVOS DE train USA REALMENTE
+
+Dentro de input_data/train, el codigo SOLO usa estos 3 archivos:
+
+A) Features (X):
+- data/data.parquet
+- Se carga con pandas.read_parquet(...)
+
+B) Labels (y):
+- labels/data.labels
+- Se carga con pandas.read_csv(...)
+
+C) Weights (w):
+- weights/data.weights
+- Se carga con pandas.read_csv(...)
+
+3) ARCHIVOS QUE VES EN train PERO ESTE PIPELINE NO USA DIRECTAMENTE
+
+- detailed_labels/data.detailed_labels
+  (sirve para analisis mas detallado, pero no lo usa este pipeline para entrenar)
+
+- settings/data.json
+  (configuracion del dataset; no entra al entrenamiento del modelo)
+
+- Inicio - Acceso directo.lnk
+  (acceso directo de Windows, no dato de entrenamiento)
+
+4) CUANTOS DATOS HAY DISPONIBLES
+
+Conteos verificados con DuckDB:
+
+- train/data/data.parquet: 157,016,124 filas
+- train/labels/data.labels: 157,016,124 filas
+- train/weights/data.weights: 157,016,124 filas
+
+Esto confirma que X, y y w estan alineados 1 a 1 para entrenamiento.
+
+Adicionalmente, si miras TODO input_data (train + test), hay:
+- 220,099,101 filas en total de archivos parquet
+
+Desglose parquet en input_data:
+- train/data/data.parquet:      157,016,124
+- test/data/ztautau_data.parquet: 60,143,759
+- test/data/ttbar_data.parquet:    2,651,399
+- test/data/diboson_data.parquet:    226,919
+- test/data/htautau_data.parquet:     60,900
+
+Importante:
+- Para entrenar, este pipeline usa SOLO la parte train (157,016,124 filas), no los parquet de test.
+
+5) COMO LOS DIVIDE PARA ENTRENAR Y VALIDAR
+
+En cargador_datos.py se aplica:
+- train_test_split(..., test_size=0.2, shuffle=True, random_state=42)
+
+Eso significa:
+- 80% para entrenamiento
+- 20% para validacion
+
+Caso A (configuracion actual en pipeline_produccion_final.py):
+- SAMPLE_SIZE = 100000
+- Primero intenta leer un bloque parcial (limit = sample_size * 5 = 500,000 aprox)
+- Luego toma muestra aleatoria de 100,000 eventos
+- Division final:
+  - Entrenamiento: 80,000
+  - Validacion:    20,000
+
+Caso B (modo competencia, usando todo):
+- SAMPLE_SIZE = None
+- Usa las 157,016,124 filas completas de train
+- Division 80/20:
+  - Entrenamiento: 125,612,899
+  - Validacion:     31,403,225
+
+6) QUE PASA DESPUES DE DIVIDIR
+
+- Ajusta StandardScaler SOLO con X_train
+- Aplica ese mismo scaler a X_val
+- Devuelve:
+  X_train, X_val, y_train, y_val, w_train, w_val
+
+Resumen corto:
+- El modelo no mezcla archivos raros ni carpetas extras.
+- Entrena con 3 archivos concretos de train: data.parquet + data.labels + data.weights.
+- Hoy (con SAMPLE_SIZE=100000) entrena con 80k y valida con 20k.
+- Si pones SAMPLE_SIZE=None, entrena con 125.6M y valida con 31.4M.

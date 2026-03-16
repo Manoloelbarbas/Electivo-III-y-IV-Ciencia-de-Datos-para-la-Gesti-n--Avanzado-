@@ -1,0 +1,72 @@
+GUIA RAPIDA - EXPORTAR MUESTRAS A EXCEL CON CONTROL DE FILAS
+
+Script:
+- 02_Codigos/exportar_muestra_excel.ps1
+
+Que hace:
+- Extrae muestras de train o test.
+- Controla cuantas filas exportar.
+- Permite varios modos de seleccion:
+  - head   : primeras filas
+  - tail   : ultimas filas
+  - random : filas aleatorias reproducibles por seed
+  - order  : ordenado por una o varias columnas
+- Permite filtros SQL (WHERE) y seleccion de columnas.
+- En train, por defecto extrae solo features (mas rapido).
+- Puedes agregar label y/o weight de forma opcional.
+- Puedes agregar DER_* calculadas al vuelo con -IncludeDer.
+- Exporta a .xlsx (o .csv si usas -CsvOnly).
+- En Excel crea formato legible:
+  - Fila 1: descripcion humana de cada columna.
+  - Fila 2: nombre oficial tecnico (PRI_*, DER_*, label, weight).
+  - Fila 3 en adelante: datos.
+  - Encabezados con estilo, tabla, columnas ajustadas y panel congelado.
+
+Ejemplos:
+
+1) Train, 100 filas aleatorias:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -Mode random -Rows 100
+
+2) Train, 100 primeras filas:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -Mode head -Rows 100
+
+3) Train, 100 filas ordenadas por PRI_met desc:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -Mode order -OrderBy "PRI_met" -Desc -Rows 100
+
+4) Train, solo eventos con mucha energia faltante:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -Mode order -Where "PRI_met > 200" -OrderBy "PRI_met" -Desc -Rows 100
+
+5) Test, 100 filas aleatorias de todos los archivos:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split test -TestSource all -Mode random -Rows 100
+
+6) Test, 100 filas solo de ztautau:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split test -TestSource ztautau -Mode random -Rows 100
+
+7) Train con label y weight:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -IncludeLabel -IncludeWeight -Mode random -Rows 100
+
+8) Elegir columnas especificas:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -IncludeLabel -IncludeWeight -Columns "PRI_lep_pt, PRI_had_pt, PRI_met, label, weight" -Mode head -Rows 100
+
+9) Train con PRI_* + DER_* + label + weight:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -IncludeLabel -IncludeWeight -IncludeDer -Mode random -Rows 100
+
+10) Cambiar semilla para otro muestreo aleatorio:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -Mode random -Rows 100 -Seed 777
+
+11) Guardar en una ruta especifica:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -Mode random -Rows 100 -OutputPath "C:\Temp\muestra_train_100.xlsx"
+
+12) Exportar CSV en vez de Excel:
+powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -Mode random -Rows 100 -CsvOnly -OutputPath "C:\Temp\muestra_train_100.csv"
+
+Notas:
+- Para agregar label y weight en train:
+  -IncludeLabel
+  -IncludeWeight
+- Para agregar DER_* (calculadas):
+  -IncludeDer
+- Nota DER: en este dataset `DER_mass_MMC` no viene directo, por eso se exporta como -25.0 (no disponible).
+- Si quieres ver el SQL generado:
+  -ShowSql
+- Si pides mas de 1,048,576 filas, el script limita al maximo de Excel.

@@ -1,0 +1,174 @@
+TUTORIAL DE USO - pipeline_produccion_final.py
+
+Archivo principal:
+- 02_Codigos/pipeline_produccion_final.py
+
+Objetivo:
+- Entrenar/cargar un modelo Stacking (XGBoost + MLP + LogisticRegression),
+  calibrar probabilidades, estimar mu con bootstrap y generar reporte/graficos.
+
+===============================================================================
+1) RUTA MINIMA (CASO B) - SOLO ELIGES CANTIDAD DE DATOS
+===============================================================================
+Este es el flujo recomendado si quieres que el codigo "decida por IA" los
+hiperparametros y tu solo definir cuantos datos usar.
+
+Paso 1: Ajusta estas 3 lineas en pipeline_produccion_final.py
+- SAMPLE_SIZE = 100000               # o None para usar todo
+- MODO_AJUSTE_HIPERPARAMETROS = "auto"
+- FORZAR_ENTRENAMIENTO = True        # solo cuando quieras reentrenar
+
+Paso 2: Ejecuta
+- py 02_Codigos/pipeline_produccion_final.py
+
+Paso 3: Cuando ya tengas modelo entrenado y no quieras reentrenar
+- FORZAR_ENTRENAMIENTO = False
+- Ejecuta de nuevo y cargara el .pkl guardado en segundos.
+
+===============================================================================
+2) MODO MANUAL (TU DEFINES PARAMETROS)
+===============================================================================
+Si quieres control total:
+- MODO_AJUSTE_HIPERPARAMETROS = "manual"
+
+Los parametros manuales estan en:
+- def get_default_hyperparams()
+  - xgb_params
+  - mlp_params
+  - meta_params
+
+Ahi puedes cambiar:
+- XGBoost: n_estimators, max_depth, learning_rate, regularizacion, etc.
+- MLP: hidden_layer_sizes, learning_rate_init, alpha, max_iter, etc.
+- Meta modelo: C, max_iter.
+
+===============================================================================
+3) MODO AUTO (BUSQUEDA AUTOMATICA DE HIPERPARAMETROS)
+===============================================================================
+Si activas:
+- MODO_AJUSTE_HIPERPARAMETROS = "auto"
+
+El pipeline hace busqueda automatica con RandomizedSearchCV para:
+- XGBoost
+- MLP
+- Meta-modelo (LogisticRegression)
+
+Configuracion de costo/tiempo del autoajuste:
+- AUTO_TUNING_MAX_ROWS
+- AUTO_TUNING_CV
+- AUTO_TUNING_XGB_N_ITER
+- AUTO_TUNING_MLP_N_ITER
+- AUTO_TUNING_META_N_ITER
+
+Si quieres mas calidad (mas lento):
+- Sube N_ITER y/o CV.
+
+Si quieres mas velocidad:
+- Baja N_ITER, CV o MAX_ROWS.
+
+===============================================================================
+4) QUE HACE CADA PARAMETRO GLOBAL CLAVE
+===============================================================================
+- FORZAR_ENTRENAMIENTO:
+  True  = ignora modelo guardado y entrena de cero
+  False = si existe .pkl, lo carga y se salta entrenamiento
+
+- SAMPLE_SIZE:
+  None      = usa todo el dataset train
+  Numero    = usa muestra aleatoria de ese tamano
+
+- MODO_AJUSTE_HIPERPARAMETROS:
+  "manual"  = usa parametros fijos de get_default_hyperparams()
+  "auto"    = busca mejores parametros antes de entrenar
+
+===============================================================================
+5) FLUJO COMPLETO DEL PIPELINE (RESUMEN)
+===============================================================================
+1. Carga datos con HiggsDataLoader.
+2. Si hay modelo guardado y no fuerzas entrenamiento -> carga modelo.
+3. Si entrena:
+   - Selecciona hiperparametros (manual/auto)
+   - Data augmentation (ruido fisico)
+   - Curvas de convergencia (XGB + MLP standalone)
+   - Entrena Stacking
+   - Calibra probabilidades
+   - Guarda modelo y metadatos
+4. Evalua en validacion:
+   - Accuracy, Brier, ROC/AUC
+   - Bootstrap para mu
+5. Genera:
+   - graficos
+   - reporte final txt
+
+===============================================================================
+6) ARCHIVOS DE SALIDA IMPORTANTES
+===============================================================================
+Carpeta de salida:
+- 04_Resultados/Resultados_Produccion_Final
+
+Principales:
+- modelo_entrenado_higgs.pkl
+- convergencia_entrenamiento.png
+- calibracion_comparativa.png
+- roc_stacking.png
+- distribucion_stacking.png
+- bootstrap_mu.png
+- importancia_variables.png
+- REPORTE_PRODUCCION_FINAL.txt
+
+===============================================================================
+7) PERFIL RECOMENDADO POR ESCENARIO
+===============================================================================
+Escenario A - Prueba rapida:
+- SAMPLE_SIZE = 100000
+- MODO_AJUSTE_HIPERPARAMETROS = "manual"
+- FORZAR_ENTRENAMIENTO = True
+
+Escenario B - Autoajuste sin tocar parametros:
+- SAMPLE_SIZE = 100000 (o 300000)
+- MODO_AJUSTE_HIPERPARAMETROS = "auto"
+- FORZAR_ENTRENAMIENTO = True
+
+Escenario C - Entrenamiento final serio:
+- SAMPLE_SIZE = None
+- MODO_AJUSTE_HIPERPARAMETROS = "auto" (o manual bien afinado)
+- FORZAR_ENTRENAMIENTO = True
+
+===============================================================================
+8) EXPORTAR MUESTRAS PARA REVISAR DATOS (EXCEL)
+===============================================================================
+Script:
+- 02_Codigos/exportar_muestra_excel.ps1
+
+Ejemplo util:
+- powershell -ExecutionPolicy Bypass -File .\02_Codigos\exportar_muestra_excel.ps1 -Split train -IncludeLabel -IncludeWeight -IncludeDer -Mode random -Rows 100
+
+Guia:
+- 02_Codigos/GUIA_EXPORTAR_MUESTRAS_EXCEL.txt
+
+===============================================================================
+9) TROUBLESHOOTING RAPIDO
+===============================================================================
+Problema: "No reentrena aunque cambie parametros"
+- Solucion: FORZAR_ENTRENAMIENTO = True
+
+Problema: "Demasiado lento en auto"
+- Solucion: bajar AUTO_TUNING_* (iteraciones/cv/max_rows)
+
+Problema: "Error por dependencias Python"
+- Verifica entorno con:
+  py 02_Codigos/test_imports.py
+
+Problema: "Se demora mucho por usar todo el dataset"
+- Empieza con SAMPLE_SIZE pequeno y luego escala.
+
+===============================================================================
+10) CHECKLIST ANTES DE EJECUTAR
+===============================================================================
+- [ ] SAMPLE_SIZE definido
+- [ ] MODO_AJUSTE_HIPERPARAMETROS definido
+- [ ] FORZAR_ENTRENAMIENTO definido segun objetivo
+- [ ] Dependencias instaladas
+- [ ] Ruta de datos valida (DATA_DIR)
+- [ ] Espacio en disco para resultados
+
